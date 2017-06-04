@@ -9,7 +9,7 @@ TODO: Delete this and the text above, and describe your gem
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'packspec-rb'
+gem 'packspec'
 ```
 
 And then execute:
@@ -18,7 +18,7 @@ And then execute:
 
 Or install it yourself as:
 
-    $ gem install packspec-rb
+    $ gem install packspec
 
 ## Usage
 

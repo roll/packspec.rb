@@ -3,13 +3,13 @@ lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |spec|
-  spec.name          = "packspec-rb"
+  spec.name          = "packspec"
   spec.version       = "0.1.0"
   spec.authors       = ["Evgeny Karev\n"]
   spec.email         = ["eskarev@gmail.com"]
 
-  spec.summary       = %q{packspec-rb}
-  spec.description   = %q{packspec-rb}
+  spec.summary       = %q{packspec}
+  spec.description   = %q{packspec}
   spec.homepage      = "https://github.com/packspec/packspec-rb"
   spec.license       = "MIT"
 
