@@ -17,7 +17,7 @@ Gem::Specification.new do |spec|
     f.match(%r{^(test|spec|features)/})
   end
 
-  spec.bindir        = "exe"
+  spec.bindir        = "bin"
   spec.executables   = ["packspec"]
   spec.require_paths = ["lib"]
 
