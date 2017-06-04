@@ -10,7 +10,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = %q{packspec-rb}
   spec.description   = %q{packspec-rb}
-  spec.homepage      = "https://github.com/packspec/packspec-py"
+  spec.homepage      = "https://github.com/packspec/packspec-rb"
   spec.license       = "MIT"
 
   spec.files         = `git ls-files -z`.split("\x0").reject do |f|
