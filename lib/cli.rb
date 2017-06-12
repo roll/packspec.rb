@@ -21,6 +21,7 @@ def parse_specs(path)
       specmap[spec['package']] = spec
     else
       specmap[spec['package']]['features'].merge!(spec['features'])
+      specmap[spec['package']]['scope'].merge!(spec['scope'])
     end
   end
 
@@ -44,6 +45,15 @@ def parse_spec(spec)
     package = feature['result']
     assert_equal(feature['assign'], 'PACKAGE')
     assert_equal(feature['skip'], nil)
+    if package.is_a?(String)
+      package = {'default' => [package]}
+    elsif package.is_a?(Array)
+      package = {'default' => package}
+    elsif package.is_a?(Hash)
+      for key, value in package.each_pair()
+        package[key] = value.is_a?(Array) ? value : [value]
+      end
+    end
   rescue Exception
     return nil
   end
@@ -57,19 +67,28 @@ def parse_spec(spec)
 
   # Scope
   scope = {}
-  require(package)
-  for item in ObjectSpace.each_object
-    if package == String(item).downcase
-      begin
-        namespace = Kernel.const_get(item)
-      rescue Exception
-        next
-      end
-      for name in namespace.constants
-        scope[String(name)] = namespace.const_get(name)
+  packages = []
+  attributes = {}
+  for namespace, module_names in package.each_pair
+    packages.push(*module_names)
+    namespace_scope = scope
+    if namespace != 'default'
+      if !scope.key?(namespace) then scope[namespace] = {} end
+      namespace_scope = scope[namespace]
+    end
+    for module_name in module_names
+      attributes = get_module_attributes(module_name)
+      namespace_scope.merge!(attributes)
+      if !attributes.empty?
+        break
       end
     end
+    if attributes.empty?
+      scope = {}
+      break
+    end
   end
+  package = packages.sort().join('/')
 
   return {
     'package' => package,
@@ -274,6 +293,29 @@ def test_feature(feature, scope)
 
   return success
 
+end
+
+
+def get_module_attributes(module_name)
+  attributes = {}
+  begin
+    require(module_name)
+  rescue Exception
+    return {}
+  end
+  for item in ObjectSpace.each_object
+    if module_name == String(item).downcase
+      begin
+        module_scope = Kernel.const_get(item)
+      rescue Exception
+        next
+      end
+      for name in module_scope.constants
+        attributes[String(name)] = module_scope.const_get(name)
+      end
+    end
+  end
+  return attributes
 end
 
 
