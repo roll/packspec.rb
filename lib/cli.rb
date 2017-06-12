@@ -243,6 +243,7 @@ def test_feature(feature, scope)
   feature['result'] = dereference_value(feature['result'], scope)
 
   # Execute
+  exception = nil
   result = feature['result']
   if !!feature['property']
     begin
@@ -260,7 +261,8 @@ def test_feature(feature, scope)
       else
         result = property
       end
-    rescue Exception
+    rescue Exception => exc
+      exception = exc
       result = 'ERROR'
     end
   end
@@ -294,7 +296,12 @@ def test_feature(feature, scope)
       result_text = result.to_s
     end
     message = " #{Emoji.find_by_alias('x').raw}  ".red
-    message += "#{feature['text']} # #{result_text}"
+    message += "#{feature['text']}\n"
+    if exception
+      message += "Exception: #{exception}".red.bold
+    else
+      message += "Assertion: #{result_text} != #{JSON.generate(feature['result'])}".red.bold
+    end
     puts(message)
   end
 
