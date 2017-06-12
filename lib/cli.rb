@@ -234,8 +234,15 @@ def test_feature(feature, scope)
     return true
   end
 
+  # Dereference
+  #TODO: deepcopy feature
+  if !!feature['call']
+    feature['args'] = dereference_value(feature['args'], scope)
+    feature['kwargs'] = dereference_value(feature['kwargs'], scope)
+  end
+  feature['result'] = dereference_value(feature['result'], scope)
+
   # Execute
-  # TODO: dereference feature
   result = feature['result']
   if !!feature['property']
     begin
@@ -319,20 +326,9 @@ def get_module_attributes(module_name)
 end
 
 
-def dereference_feature(feature, scope)
-    #TODO: deepcopy feature
-    if !!feature['call']
-      feature['args'] = dereference_value(feature['args'], scope)
-      feature['kwargs'] = dereference_value(feature['kwargs'], scope)
-    end
-    feature['result'] = dereference_value(feature['result'], scope)
-    return feature
-end
-
-
 def dereference_value(value, scope)
   #TODO: deepcopy value
-  if value.is_a?(Hash) && value.lengh == 1 && Array(value.each_value)[0] == nil
+  if value.is_a?(Hash) && value.length == 1 && Array(value.each_value)[0] == nil
     result = scope
     for name in Array(value.each_key)[0].split('.')
       result = get_property(result, name)
@@ -352,22 +348,21 @@ end
 
 
 def get_property(owner, name)
-  # TODO: review
-  result = nil
-  if owner.is_a?(Hash)
-    result = owner[name]
+  if owner.class == Hash
+    return owner[name]
+  elsif owner.class == Array
+    return owner[name.to_i]
   end
-  if !result
-    result = owner.method(name)
-  end
-  return result
+  return owner.method(name)
 end
 
 
 def set_property(owner, name, value)
-  # TODO: review
-  if owner.is_a?(Hash)
+  if owner.class == Hash
     owner[name] = value
+    return
+  elsif owner.class == Array
+    owner[name.to_i] = value
     return
   end
   return owner.const_set(name, value)
