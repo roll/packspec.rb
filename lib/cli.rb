@@ -13,8 +13,8 @@ def parse_specs(path)
 
   # Specs
   specmap = {}
-  for path in Dir.glob("#{path}/**/*.yml")
-    spec = parse_spec(File.read(path))
+  for filepath in Dir.glob("#{path}/**/*.yml")
+    spec = parse_spec(File.read(filepath))
     if !spec
       next
     elsif !specmap.include?(spec['package'])
@@ -26,10 +26,44 @@ def parse_specs(path)
   end
 
   # Hooks
-  # TODO: implement
+  hookmap = {}
+  for filepath in Dir.glob("#{path}/**/packspec.rb")
+    begin
+      eval(File.read(filepath))
+      hook_scope = Packspec::User.new()
+      for name in hook_scope.public_methods
+        # TODO: filter ruby builtin methods
+        hookmap["$#{name}"] = hook_scope.public_method(name)
+      end
+    rescue Exception
+    end
+  end
 
   # Result
   specs = Array(specmap.sort.to_h.each_value)
+  for spec in specs
+    skip = false
+    spec['ready'] = !spec['scope'].empty?
+    spec['stats'] = {'features' => 0, 'comments' => 0, 'skipped' => 0, 'tests' => 0}
+    for feature, index in spec['features'].each_with_index
+      if feature['assign'] == 'PACKAGE' and index
+        spec['features'].delete_at(index)
+      end
+      spec['stats']['features'] += 1
+      if feature['comment']
+        skip = feature['skip']
+        spec['stats']['comments'] += 1
+      end
+      feature['skip'] = skip || feature['skip']
+      if !feature['comment']
+        spec['stats']['tests'] += 1
+        if feature['skip']
+            spec['stats']['skipped'] += 1
+        end
+      end
+    end
+    spec['scope'].merge!(hookmap)
+  end
 
   return specs
 
@@ -100,6 +134,8 @@ end
 
 
 def parse_feature(feature)
+
+  # General
   if feature.is_a?(String)
     return {'comment' => feature}
   end
