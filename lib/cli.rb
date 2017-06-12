@@ -351,12 +351,6 @@ def dereference_value(value, scope)
 end
 
 
-def isoformat_value(value)
-  # TODO: implement
-  return value
-end
-
-
 def get_property(owner, name)
   # TODO: review
   result = nil
