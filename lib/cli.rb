@@ -162,7 +162,7 @@ def parse_feature(feature)
     text = "#{text}(#{items.join(', ')})"
   end
   if !!result && !assign
-    text = "#{text} == #{JSON.generate(result)}"
+    text = "#{text} == #{result == 'ERROR' ? result : JSON.generate(result)}"
   end
   text = text.gsub(/{"([^{}]*?)": null}/, '\1')
 
