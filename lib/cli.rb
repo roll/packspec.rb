@@ -378,7 +378,6 @@ end
 
 
 def dereference_value(value, scope)
-  #TODO: deepcopy value
   if value.is_a?(Hash) && value.length == 1 && Array(value.each_value)[0] == nil
     result = scope
     for name in Array(value.each_key)[0].split('.')
@@ -399,6 +398,9 @@ end
 
 
 def get_property(owner, name)
+  if owner.is_a?(Method)
+    owner = owner.call()
+  end
   if owner.class == Hash
     return owner[name]
   elsif owner.class == Array
