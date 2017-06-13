@@ -45,8 +45,8 @@ def parse_specs(path)
     skip = false
     spec['ready'] = !spec['scope'].empty?
     spec['stats'] = {'features' => 0, 'comments' => 0, 'skipped' => 0, 'tests' => 0}
-    for feature, index in spec['features'].each_with_index
-      if feature['assign'] == 'PACKAGE' and index
+    for feature, index in spec['features'].dup.each_with_index
+      if feature['assign'] == 'PACKAGE' && index
         spec['features'].delete_at(index)
       end
       spec['stats']['features'] += 1
@@ -137,7 +137,13 @@ def parse_feature(feature)
 
   # General
   if feature.is_a?(String)
-    return {'comment' => feature}
+    match = /^(?:(.*):)?(\w.*)$/.match(feature)
+    skip, comment = match[1], match[2]
+    if !!skip
+      filters = skip.split(':')
+      skip = (filters[0] == 'not') == (filters.include?('rb'))
+    end
+    return {'assign' => nil, 'comment' => comment, 'skip' => skip}
   end
   left, right = Array(feature.each_pair)[0]
 
@@ -149,7 +155,7 @@ def parse_feature(feature)
     filters = skip.split(':')
     skip = (filters[0] == 'not') == (filters.include?('rb'))
   end
-  if !assign and !property
+  if !assign && !property
     raise Exception.new('Non-valid feature')
   end
   if !!property
