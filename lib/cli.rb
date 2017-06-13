@@ -46,8 +46,10 @@ def parse_specs(path)
     spec['ready'] = !spec['scope'].empty?
     spec['stats'] = {'features' => 0, 'comments' => 0, 'skipped' => 0, 'tests' => 0}
     for feature, index in spec['features'].dup.each_with_index
-      if feature['assign'] == 'PACKAGE' && index
-        spec['features'].delete_at(index)
+      if feature['assign'] == 'PACKAGE'
+        if index > 0
+          spec['features'].delete_at(index)
+        end
       end
       spec['stats']['features'] += 1
       if feature['comment']
@@ -237,7 +239,6 @@ end
 
 def test_spec(spec)
   passed = 0
-  amount = spec['features'].length
   message = Emoji.find_by_alias('heavy_minus_sign').raw * 3 + "\n\n"
   puts(message)
   for feature in spec['features']
@@ -246,14 +247,14 @@ def test_spec(spec)
       passed += 1
     end
   end
-  success = (passed == amount)
+  success = (passed == spec['stats']['features'])
   color = 'green'
   message = ("\n " + Emoji.find_by_alias('heavy_check_mark').raw + '  ').green.bold
   if !success
     color = 'red'
     message = ("\n " + Emoji.find_by_alias('x').raw + '  ').red.bold
   end
-  message += "#{spec['package']}: #{passed}/#{amount}\n".colorize(color).bold
+  message += "#{spec['package']}: #{passed - spec['stats']['comments'] - spec['stats']['skipped']}/#{spec['stats']['tests'] - spec['stats']['skipped']}\n".colorize(color).bold
   puts(message)
   return success
 end
@@ -277,7 +278,6 @@ def test_feature(feature, scope)
   end
 
   # Dereference
-  #TODO: deepcopy feature
   if !!feature['call']
     feature['args'] = dereference_value(feature['args'], scope)
     feature['kwargs'] = dereference_value(feature['kwargs'], scope)
@@ -294,7 +294,6 @@ def test_feature(feature, scope)
         property = get_property(property, name)
       end
       if !!feature['call']
-        # TODO: support kwargs
         if property.respond_to?('new')
           result = property.new(*feature['args'])
         else
@@ -302,6 +301,9 @@ def test_feature(feature, scope)
         end
       else
         result = property
+        if result.is_a?(Method)
+          result = result.call()
+        end
       end
     rescue Exception => exc
       exception = exc
