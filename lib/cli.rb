@@ -278,6 +278,7 @@ def test_feature(feature, scope)
   end
 
   # Dereference
+  # TODO: deepcopy feature
   if !!feature['call']
     feature['args'] = dereference_value(feature['args'], scope)
     feature['kwargs'] = dereference_value(feature['kwargs'], scope)
@@ -294,10 +295,14 @@ def test_feature(feature, scope)
         property = get_property(property, name)
       end
       if !!feature['call']
+        args = feature['args'].dup
+        if !feature['kwargs'].empty?
+          args.push(Hash[feature['kwargs'].map{|k, v| [k.to_sym, v]}])
+        end
         if property.respond_to?('new')
-          result = property.new(*feature['args'])
+          result = property.new(*args)
         else
-          result = property.call(*feature['args'])
+          result = property.call(*args)
         end
       else
         result = property
@@ -323,7 +328,6 @@ def test_feature(feature, scope)
   end
 
   # Compare
-  # TODO: isoformat value
   if feature['result'] != nil
     success = result == feature['result']
   else
