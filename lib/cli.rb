@@ -1,70 +1,36 @@
-require 'pp'
 require 'json'
 require 'yaml'
 require 'emoji'
 require 'colorize'
-require 'test/unit'
-extend Test::Unit::Assertions
 
 
 # Helpers
 
 def parse_specs(path)
 
+  # Paths
+  paths = []
+  if !path
+    paths =  Dir.glob('package.*')
+    if paths.empty?
+      path = 'packspec'
+    end
+  end
+  if File.file?(path)
+    paths = [path]
+  elsif File.directory?(path)
+    for path in Dir.glob("#{path}/*.*")
+      paths.push(path)
+    end
+  end
+
   # Specs
-  specmap = {}
-  for filepath in Dir.glob("#{path}/**/*.yml")
-    spec = parse_spec(File.read(filepath))
-    if !spec
-      next
-    elsif !specmap.include?(spec['package'])
-      specmap[spec['package']] = spec
-    else
-      specmap[spec['package']]['features'].merge!(spec['features'])
-      specmap[spec['package']]['scope'].merge!(spec['scope'])
+  specs = []
+  for path in paths
+    spec = parse_spec(path)
+    if spec
+      specs.push(spec)
     end
-  end
-
-  # Hooks
-  hookmap = {}
-  for filepath in Dir.glob("#{path}/**/packspec.rb")
-    begin
-      eval(File.read(filepath))
-      hook_scope = Packspec::User.new()
-      for name in hook_scope.public_methods
-        # TODO: filter ruby builtin methods
-        hookmap["$#{name}"] = hook_scope.public_method(name)
-      end
-    rescue Exception
-    end
-  end
-
-  # Result
-  specs = Array(specmap.sort.to_h.each_value)
-  for spec in specs
-    skip = false
-    spec['ready'] = !spec['scope'].empty?
-    spec['stats'] = {'features' => 0, 'comments' => 0, 'skipped' => 0, 'tests' => 0}
-    for feature, index in spec['features'].dup.each_with_index
-      if feature['assign'] == 'PACKAGE'
-        if index > 0
-          spec['features'].delete_at(index)
-        end
-      end
-      spec['stats']['features'] += 1
-      if feature['comment']
-        skip = feature['skip']
-        spec['stats']['comments'] += 1
-      end
-      feature['skip'] = skip || feature['skip']
-      if !feature['comment']
-        spec['stats']['tests'] += 1
-        if feature['skip']
-            spec['stats']['skipped'] += 1
-        end
-      end
-    end
-    spec['scope'].merge!(hookmap)
   end
 
   return specs
@@ -72,64 +38,68 @@ def parse_specs(path)
 end
 
 
-def parse_spec(spec)
+def parse_spec(path)
 
-  # Package
-  contents = YAML.load(spec)
-  begin
-    feature = parse_feature(contents[0])
-    package = feature['result']
-    assert_equal(feature['assign'], 'PACKAGE')
-    assert_equal(feature['skip'], nil)
-    if package.is_a?(String)
-      package = {'default' => [package]}
-    elsif package.is_a?(Array)
-      package = {'default' => package}
-    elsif package.is_a?(Hash)
-      for key, value in package.each_pair()
-        package[key] = value.is_a?(Array) ? value : [value]
-      end
-    end
-  rescue Exception
+  # Documents
+  documents = []
+  if !path.end_with?('.yml')
     return nil
   end
+  contents = File.read(path)
+  YAML.load_stream(contents) do |document|
+    documents.push(document)
+  end
+
+  # Package
+  feature = parse_feature(documents[0][0])
+  if feature['skip']
+    return nil
+  end
+  package = feature['comment']
 
   # Features
+  skip = false
   features = []
-  for feature in contents
+  for feature in documents[0]
     feature = parse_feature(feature)
     features.push(feature)
+    if feature['comment']
+      skip = feature['skip']
+    end
+    feature['skip'] = skip || feature['skip']
   end
 
   # Scope
   scope = {}
-  packages = []
-  attributes = {}
-  for namespace, module_names in package.each_pair
-    packages.push(*module_names)
-    namespace_scope = scope
-    if namespace != 'default'
-      if !scope.key?(namespace) then scope[namespace] = {} end
-      namespace_scope = scope[namespace]
-    end
-    for module_name in module_names
-      attributes = get_module_attributes(module_name)
-      namespace_scope.merge!(attributes)
-      if !attributes.empty?
-        break
-      end
-    end
-    if attributes.empty?
-      scope = {}
-      break
+  scope['$import'] = BuiltinFunctions.new().public_method(:builtin_import)
+  if documents.length > 1 && documents[1]['rb']
+    eval(documents[1]['rb'])
+    hook_scope = Functions.new()
+    for name in hook_scope.public_methods
+      # TODO: filter ruby builtin methods
+      scope["$#{name}"] = hook_scope.public_method(name)
     end
   end
-  package = packages.sort().join('/')
+
+  # Stats
+  stats = {'features' => 0, 'comments' => 0, 'skipped' => 0, 'tests' => 0}
+  for feature in features
+    stats['features'] += 1
+    if feature['comment']
+      stats['comments'] += 1
+    else
+      stats['tests'] += 1
+      if feature['skip']
+        stats['skipped'] += 1
+      end
+    end
+  end
 
   return {
     'package' => package,
     'features' => features,
     'scope' => scope,
+    'stats' => stats,
   }
 
 end
@@ -139,11 +109,10 @@ def parse_feature(feature)
 
   # General
   if feature.is_a?(String)
-    match = /^(?:(.*):)?(\w.*)$/.match(feature)
+    match = /^(?:\((.*)\))?(\w.*)$/.match(feature)
     skip, comment = match[1], match[2]
     if !!skip
-      filters = skip.split(':')
-      skip = (filters[0] == 'not') == (filters.include?('rb'))
+      skip = !skip.split(':').include?('rb')
     end
     return {'assign' => nil, 'comment' => comment, 'skip' => skip}
   end
@@ -151,11 +120,10 @@ def parse_feature(feature)
 
   # Left side
   call = false
-  match = /^(?:(.*):)?(?:([^=]*)=)?([^=].*)?$/.match(left)
+  match = /^(?:\((.*)\))?(?:([^=]*)=)?([^=].*)?$/.match(left)
   skip, assign, property = match[1], match[2], match[3]
   if !!skip
-    filters = skip.split(':')
-    skip = (filters[0] == 'not') == (filters.include?('rb'))
+    skip = !skip.split(':').include?('rb')
   end
   if !assign && !property
     raise Exception.new('Non-valid feature')
@@ -226,21 +194,31 @@ end
 
 
 def test_specs(specs)
-  success = true
+
+  # Message
   message = "\n #  Ruby\n".bold
   puts(message)
+
+  # Test specs
+  success = true
   for spec in specs
     spec_success = test_spec(spec)
     success = success && spec_success
   end
+
   return success
+
 end
 
 
 def test_spec(spec)
-  passed = 0
+
+  # Message
   message = Emoji.find_by_alias('heavy_minus_sign').raw * 3 + "\n\n"
   puts(message)
+
+  # Test spec
+  passed = 0
   for feature in spec['features']
     result = test_feature(feature, spec['scope'])
     if result
@@ -248,6 +226,8 @@ def test_spec(spec)
     end
   end
   success = (passed == spec['stats']['features'])
+
+  # Message
   color = 'green'
   message = ("\n " + Emoji.find_by_alias('heavy_check_mark').raw + '  ').green.bold
   if !success
@@ -256,7 +236,9 @@ def test_spec(spec)
   end
   message += "#{spec['package']}: #{passed - spec['stats']['comments'] - spec['stats']['skipped']}/#{spec['stats']['tests'] - spec['stats']['skipped']}\n".colorize(color).bold
   puts(message)
+
   return success
+
 end
 
 
@@ -358,26 +340,24 @@ def test_feature(feature, scope)
 end
 
 
-def get_module_attributes(module_name)
-  attributes = {}
-  begin
-    require(module_name)
-  rescue Exception
-    return {}
-  end
-  for item in ObjectSpace.each_object
-    if module_name == String(item).downcase
-      begin
-        module_scope = Kernel.const_get(item)
-      rescue Exception
-        next
-      end
-      for name in module_scope.constants
-        attributes[String(name)] = module_scope.const_get(name)
+class BuiltinFunctions
+  def builtin_import(package)
+    attributes = {}
+    require(package)
+    for item in ObjectSpace.each_object
+      if package == String(item).downcase
+        begin
+          scope = Kernel.const_get(item)
+        rescue Exception
+          next
+        end
+        for name in scope.constants
+          attributes[String(name)] = scope.const_get(name)
+        end
       end
     end
+    return attributes
   end
-  return attributes
 end
 
 
@@ -428,7 +408,7 @@ end
 
 # Main program
 
-path = ARGV[0] || '.'
+path = ARGV[0] || nil
 specs = parse_specs(path)
 success = test_specs(specs)
 if !success
