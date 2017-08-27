@@ -10,17 +10,19 @@ def parse_specs(path)
 
   # Paths
   paths = []
-  if !path
-    paths =  Dir.glob('package.*')
-    if paths.empty?
-      path = 'packspec'
+  if path
+    if File.file?(path)
+      paths = [path]
+    elsif File.directory?(path)
+      paths = Dir.glob("#{path}/*.yml")
     end
   end
-  if File.file?(path)
-    paths = [path]
-  elsif File.directory?(path)
-    for path in Dir.glob("#{path}/*.*")
-      paths.push(path)
+  if !path
+    if paths.empty?
+      paths = Dir.glob('packspec.yml')
+    end
+    if paths.empty?
+      paths = Dir.glob("packspec/*.yml")
     end
   end
 
@@ -40,17 +42,12 @@ end
 
 def parse_spec(path)
 
-  # Documents
+  # Package
   documents = []
-  if !path.end_with?('.yml')
-    return nil
-  end
   contents = File.read(path)
   YAML.load_stream(contents) do |document|
     documents.push(document)
   end
-
-  # Package
   feature = parse_feature(documents[0][0])
   if feature['skip']
     return nil
