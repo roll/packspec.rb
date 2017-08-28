@@ -342,7 +342,12 @@ class BuiltinFunctions
     attributes = {}
     require(package)
     for item in ObjectSpace.each_object
-      if package == String(item).downcase
+      begin
+        item_name = String(item).downcase
+      rescue Exception
+        next
+      end
+      if package == item_name
         begin
           scope = Kernel.const_get(item)
         rescue Exception
