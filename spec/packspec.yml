@@ -1,0 +1,74 @@
+- value
+
+- value=: 'value'
+- value==: 'value'
+
+- class
+
+- class=: {$TestClass}
+- (py)class.static_property==: {value}
+- class.static_method: [==: {value}]
+
+- instance
+
+- instance=$TestClass: ['value']
+- instance.property==: 'value'
+- instance.method: [==: 'value']
+- (py|js)instance.name=: 'value'
+- (py|js)instance.name==: 'value'
+
+- function
+
+- result=$test_function: ['value', suffix=: '!']
+- result==: 'VALUE!'
+
+- object
+
+- object=: {'key': 'value'}
+- object.nested=: {'key': 'value'}
+- object.nested.key==: 'value'
+- object.key==: 'value'
+
+- array
+
+- array=: ['value', 'nested']
+- array.1=: ['value']
+- array.1.0==: 'value'
+- array.0==: 'value'
+
+- filter
+
+- (xx)value==: 'FAIL'
+
+- (py)import
+
+- json=$import: ['json']
+- json.dumps: [{value}, ==: '"value"']
+
+---
+
+rb: |
+
+  class TestClass
+    # static_property = 'value'
+
+    def self.static_method()
+      return 'value'
+    end
+
+    def initialize(value)
+      @value = value
+    end
+
+    def property()
+      return @value
+    end
+
+    def method()
+      return @value
+    end
+  end
+
+  def test_function(value, suffix: '')
+    return value.upcase + suffix
+  end

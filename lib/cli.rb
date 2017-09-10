@@ -70,12 +70,18 @@ def parse_spec(path)
   scope = {}
   scope['$import'] = BuiltinFunctions.new().public_method(:builtin_import)
   if documents.length > 1 && documents[1]['rb']
-    eval(documents[1]['rb'])
-    hook_scope = Functions.new()
-    for name in hook_scope.public_methods
-      # TODO: filter ruby builtin methods
-      scope["$#{name}"] = hook_scope.public_method(name)
+    eval("module UserScope\n" + documents[1]['rb'] + "\nend")
+    for name in UserScope.constants
+      scope["$#{name}"] = UserScope.const_get(name)
     end
+    default = Class.new
+    methods = Class.new.extend(UserScope)
+    for name in methods.public_methods
+      if !default.respond_to?(name)
+        scope["$#{name}"] = methods.public_method(name)
+      end
+    end
+    p scope
   end
 
   # Stats
@@ -109,7 +115,7 @@ def parse_feature(feature)
     match = /^(?:\((.*)\))?(\w.*)$/.match(feature)
     skip, comment = match[1], match[2]
     if !!skip
-      skip = !skip.split(':').include?('rb')
+      skip = !skip.split('|').include?('rb')
     end
     return {'assign' => nil, 'comment' => comment, 'skip' => skip}
   end
@@ -120,7 +126,7 @@ def parse_feature(feature)
   match = /^(?:\((.*)\))?(?:([^=]*)=)?([^=].*)?$/.match(left)
   skip, assign, property = match[1], match[2], match[3]
   if !!skip
-    skip = !skip.split(':').include?('rb')
+    skip = !skip.split('|').include?('rb')
   end
   if !assign && !property
     raise Exception.new('Non-valid feature')
@@ -391,8 +397,10 @@ def get_property(owner, name)
     return owner[name]
   elsif owner.class == Array
     return owner[name.to_i]
+  elsif owner.is_a?(Class)
+    return owner.method(name)
   end
-  return owner.method(name)
+  return owner.public_method(name)
 end
 
 
