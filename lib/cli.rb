@@ -81,7 +81,6 @@ def parse_spec(path)
         scope["$#{name}"] = methods.public_method(name)
       end
     end
-    p scope
   end
 
   # Stats
@@ -196,7 +195,7 @@ def parse_feature(feature)
 end
 
 
-def test_specs(specs)
+def test_specs(specs, exit_first)
 
   # Message
   message = "\n #  Ruby\n".bold
@@ -205,7 +204,7 @@ def test_specs(specs)
   # Test specs
   success = true
   for spec in specs
-    spec_success = test_spec(spec)
+    spec_success = test_spec(spec, exit_first)
     success = success && spec_success
   end
 
@@ -214,7 +213,7 @@ def test_specs(specs)
 end
 
 
-def test_spec(spec)
+def test_spec(spec, exit_first)
 
   # Message
   message = Emoji.find_by_alias('heavy_minus_sign').raw * 3 + "\n\n"
@@ -223,7 +222,7 @@ def test_spec(spec)
   # Test spec
   passed = 0
   for feature in spec['features']
-    result = test_feature(feature, spec['scope'])
+    result = test_feature(feature, spec['scope'], exit_first)
     if result
       passed += 1
     end
@@ -245,7 +244,7 @@ def test_spec(spec)
 end
 
 
-def test_feature(feature, scope)
+def test_feature(feature, scope, exit_first)
 
   # Comment
   if !!feature['comment']
@@ -263,7 +262,6 @@ def test_feature(feature, scope)
   end
 
   # Dereference
-  # TODO: deepcopy feature
   if !!feature['call']
     feature['args'] = dereference_value(feature['args'], scope)
     feature['kwargs'] = dereference_value(feature['kwargs'], scope)
@@ -308,7 +306,6 @@ def test_feature(feature, scope)
     for name in names[0..-2]
       owner = get_property(owner, name)
     end
-    # TODO: ensure constants are immutable
     set_property(owner, names[-1], result)
   end
 
@@ -336,6 +333,17 @@ def test_feature(feature, scope)
       message += "Assertion: #{result_text} != #{JSON.generate(feature['result'])}".red.bold
     end
     puts(message)
+    if exit_first
+      puts('---')
+      puts('Scope (current execution scope):')
+      puts("[#{scope.keys.join(', ')}]")
+      if exception
+          puts('---')
+          raise exception
+      else
+          exit(1)
+      end
+    end
   end
 
   return success
@@ -419,8 +427,9 @@ end
 # Main program
 
 path = ARGV[0] || nil
+exit_first = ARGV.include?('-x') || ARGV.include?('--exit-first')
 specs = parse_specs(path)
-success = test_specs(specs)
+success = test_specs(specs, exit_first)
 if !success
   exit(1)
 end
