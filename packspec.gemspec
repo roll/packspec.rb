@@ -8,8 +8,8 @@ Gem::Specification.new do |spec|
   spec.authors       = ["Evgeny Karev\n"]
   spec.email         = ["eskarev@gmail.com"]
 
-  spec.summary       = %q{packspec}
-  spec.description   = %q{packspec}
+  spec.summary       = "Cross-language testings made easy: unified YML-based package specification and Python/JavaScript/Ruby/PHP test runners"
+  spec.description   = "Cross-language testings made easy: unified YML-based package specification and Python/JavaScript/Ruby/PHP test runners"
   spec.homepage      = "https://github.com/packspec/packspec-rb"
   spec.license       = "MIT"
 
