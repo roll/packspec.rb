@@ -195,7 +195,7 @@ def parse_feature(feature)
 end
 
 
-def test_specs(specs, exit_first)
+def test_specs(specs, exit_first=false)
 
   # Message
   message = "\n #  Ruby\n".bold
@@ -213,7 +213,7 @@ def test_specs(specs, exit_first)
 end
 
 
-def test_spec(spec, exit_first)
+def test_spec(spec, exit_first=false)
 
   # Message
   message = Emoji.find_by_alias('heavy_minus_sign').raw * 3 + "\n\n"
@@ -244,7 +244,7 @@ def test_spec(spec, exit_first)
 end
 
 
-def test_feature(feature, scope, exit_first)
+def test_feature(feature, scope, exit_first=false)
 
   # Comment
   if !!feature['comment']
